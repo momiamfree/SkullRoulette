@@ -41,18 +41,16 @@ All game logic is executed on-chain.
 
 - Clone the repository
 
-git clone https://github.com/yourusername/skullroulette.git
-cd skullroulette
+  - git clone https://github.com/yourusername/skullroulette.git
+  - cd frontend
 
 - Install dependencies
 
-npm install
+  - npm install
 
 - Run locally
-  
-cd frontend
 
-npm run dev
+  - npm run dev
 
 Make sure your wallet is connected to Sepolia.
 
