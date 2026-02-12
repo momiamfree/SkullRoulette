@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+SkullRoulette 🎰
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SkullRoulette is a simple on-chain roulette game built on Ethereum Sepolia.
 
-Currently, two official plugins are available:
+Users can buy ERC-20 tokens, approve the contract, and spin the roulette directly on-chain. All results and payouts are handled by a Solidity smart contract, and the frontend reacts to blockchain events in real time.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The goal of this project was to practice full Web3 integration: smart contracts, token mechanics, wallet connection, and frontend state synchronization.
 
-## React Compiler
+🛠 Tech Stack
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+- Solidity (Smart Contracts)
+- Ethereum Sepolia
+- React + Vite + TypeScript
+- ethers.js
+- wagmi
+- RainbowKit
+- TailwindCSS
 
-## Expanding the ESLint configuration
+⚙️ Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- ERC-20 token purchase (payable function)
+- Token approval & allowance validation
+- On-chain roulette spin
+- Event parsing to retrieve spin results
+- Real-time balance updates
+- Responsive animated roulette UI
+- Wallet connection with RainbowKit
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+📜 Smart Contracts
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- ERC-20 Token contract (tickets)
+- Roulette contract handling:
+  - Bet validation
+  - Spin execution
+  - Payout calculation
+  - Event emission for frontend sync
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+All game logic is executed on-chain.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+🚀 Getting Started
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Clone the repository
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+git clone https://github.com/yourusername/skullroulette.git
+cd skullroulette
+
+- Install dependencies
+
+npm install
+
+- Run locally
+
+npm run dev
+
+Make sure your wallet is connected to Sepolia.
+
+🧪 Network
+
+This project is deployed on:
+
+Ethereum Sepolia Testnet
+
+You’ll need Sepolia ETH to buy tickets and interact with the roulette.
+
+📌 Notes
+
+This is a learning and portfolio project built to demonstrate:
+
+Smart contract interaction patterns
+
+ERC-20 approval flow
+
+Event-driven UI updates
+
+Web3 frontend architecture
