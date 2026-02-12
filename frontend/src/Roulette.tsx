@@ -1,18 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAccount, useWalletClient } from "wagmi";
 import { ethers } from "ethers";
 import ROULETTE_ABI from "./abis/Roulette.json";
 import TOKEN_ABI from "./abis/RouletteToken.json";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { CustomConnectButton } from "./CustomWalletButton";
 
 const ROULETTE_ADDRESS = "0x141c78B19eBf756639d5EB1a80E75bbC3d6B2c89";
 const TOKEN_ADDRESS = "0x9291262Fed342bA9d4F585f25a674A3160331199";
 
 // Multipliers configuration for the roulette sectors
 const MULTIPLIERS = [
-    { label: "0x", color: "#ef4444", count: 10 },
-    { label: "1x", color: "#3b82f6", count: 4 },
-    { label: "2x", color: "#22c55e", count: 3 },
+    { label: "0x", color: "#e72121", count: 10 },
+    { label: "1x", color: "#3775d9", count: 4 },
+    { label: "2x", color: "#1ea650", count: 3 },
     { label: "4x", color: "#f97316", count: 2 },
     { label: "8x", color: "#eab308", count: 1 },
 ];
@@ -56,6 +56,7 @@ export default function RouletteApp() {
     const [spinning, setSpinning] = useState(false);
     const [rotation, setRotation] = useState(0);
     const [lastSector, setLastSector] = useState<number | null>(null);
+    const [balance, setBalance] = useState("0");
     const [isApproved, setIsApproved] = useState(false);
 
     // Ref and state for responsive roulette layout
@@ -70,8 +71,8 @@ export default function RouletteApp() {
             if (rouletteRef.current) {
                 const width = rouletteRef.current.getBoundingClientRect().width;
                 const isMobile = width < 500;
-                setRadius(width * 0.43); // dynamic radius proportional to roulette size
-                setLabelSize(isMobile ? 16 : 24); // smaller labels on mobile
+                setRadius(width * 0.43);
+                setLabelSize(isMobile ? 16 : 24);
                 setFontSize(14);
             }
         };
@@ -80,34 +81,116 @@ export default function RouletteApp() {
         return () => window.removeEventListener("resize", updateSizes);
     }, []);
 
-    // Check token allowance on mount
+    // Reset UI when wallet changes or disconnects
     useEffect(() => {
-        const checkApproval = async () => {
-            if (!walletClient || !isConnected || !address) return;
-            try {
-                const provider = new ethers.BrowserProvider(walletClient);
-                const signer = await provider.getSigner();
-                const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, signer);
+        if (!isConnected) {
+            setBalance("0");
+            setIsApproved(false);
+            setLastSector(null);
+            return;
+        }
 
-                const allowance = await token.allowance(address, ROULETTE_ADDRESS);
-                const minimum = ethers.parseUnits("1", 18);
-                if (allowance >= minimum) setIsApproved(true);
-            } catch (err) {
-                console.error("Error checking allowance:", err);
-            }
-        };
+        // Reset last spin when changing wallet
+        setLastSector(null);
+    }, [address, isConnected]);
+
+    // Fetch balance and approval when wallet or client changes
+    useEffect(() => {
+        if (!walletClient || !isConnected || !address) {
+            setBalance("0");
+            setIsApproved(false);
+            return;
+        }
+
+        fetchBalance();
         checkApproval();
     }, [walletClient, isConnected, address]);
 
-    // Function to buy tokens from the RLT contract
-    const buyTickets = async () => {
-        if (!walletClient || !isConnected) return;
+    // Optional: auto-refresh balance every 60s
+    useEffect(() => {
+        if (!walletClient || !address) return;
+
+        const interval = setInterval(() => {
+            fetchBalance();
+        }, 60000);
+
+        return () => clearInterval(interval);
+    }, [walletClient, address]);
+
+    // Fetch token balance
+    const fetchBalance = useCallback(async () => {
+        if (!walletClient || !address) {
+            setBalance("0");
+            return;
+        }
+
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+            const provider = new ethers.BrowserProvider(walletClient);
+            const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, provider);
+            const raw = await token.balanceOf(address);
+            const formatted = ethers.formatUnits(raw, 18);
+            setBalance(Number(formatted).toFixed(0));
+        } catch (err) {
+            console.error("Balance fetch error:", err);
+            setBalance("0");
+        }
+    }, [walletClient, address]);
+
+    // Check token allowance
+    const checkApproval = useCallback(async () => {
+        if (!walletClient || !isConnected || !address) {
+            setIsApproved(false);
+            return;
+        }
+
+        try {
+            const provider = new ethers.BrowserProvider(walletClient);
             const signer = await provider.getSigner();
             const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, signer);
+
+            const allowance = await token.allowance(address, ROULETTE_ADDRESS);
+            const minimum = ethers.parseUnits("1", 18);
+
+            setIsApproved(allowance >= minimum);
+        } catch (err) {
+            console.error("Error checking allowance:", err);
+            setIsApproved(false);
+        }
+    }, [walletClient, isConnected, address]);
+
+    // Approve roulette contract to spend tokens
+    const approveToken = async () => {
+        if (!walletClient || !isConnected) return;
+
+        try {
+            const provider = new ethers.BrowserProvider(walletClient);
+            const signer = await provider.getSigner();
+            const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, signer);
+
+            const amountApprove = ethers.parseUnits("9999999999999999", 18);
+            const tx = await token.approve(ROULETTE_ADDRESS, amountApprove);
+            await tx.wait();
+
+            await checkApproval();
+        } catch (err) {
+            console.error(err);
+            alert("❌ Approval failed");
+        }
+    };
+
+    // Buy tickets
+    const buyTickets = async () => {
+        if (!walletClient || !isConnected) return;
+
+        try {
+            const provider = new ethers.BrowserProvider(walletClient);
+            const signer = await provider.getSigner();
+            const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, signer);
+
             const tx = await token.buyTokens(10, { value: ethers.parseEther("0.01") });
             await tx.wait();
+
+            fetchBalance();
             alert("🎉 You bought 10 tickets");
         } catch (err) {
             console.error(err);
@@ -115,25 +198,7 @@ export default function RouletteApp() {
         }
     };
 
-    // Function to approve roulette contract to spend user's tokens
-    const approveToken = async () => {
-        if (!walletClient || !isConnected) return;
-        try {
-            const provider = new ethers.BrowserProvider(walletClient);
-            const signer = await provider.getSigner();
-            const token = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI.abi, signer);
-            const amountApprove = ethers.parseUnits("9999999999999999", 18); // very large allowance
-            const tx = await token.approve(ROULETTE_ADDRESS, amountApprove);
-            await tx.wait();
-            setIsApproved(true);
-            alert("✅ Tokens approved! Now you can spin the roulette.");
-        } catch (err) {
-            console.error(err);
-            alert("❌ Approval failed");
-        }
-    };
-
-    // Function to spin the roulette
+    // Spin the roulette
     const spinRoulette = async () => {
         if (!walletClient || !isConnected) return;
         if (!isApproved) {
@@ -151,7 +216,6 @@ export default function RouletteApp() {
             const tx = await roulette.spin(betAmount, { gasLimit: 250_000 });
             const receipt = await tx.wait();
 
-            // Parse logs to get the SpinResult event
             const iface = new ethers.Interface(ROULETTE_ABI.abi);
             const logs = receipt.logs
                 .map((log: { topics: ReadonlyArray<string>; data: string }) => {
@@ -163,10 +227,8 @@ export default function RouletteApp() {
             if (!spinEvent) throw new Error("SpinResult event not found");
 
             const sectorIndex = Number(spinEvent.args.sectorIndex);
-            const multiplier = Number(spinEvent.args.multiplier);
             const payout = spinEvent.args.payout;
 
-            // Map contract sector index to visual index
             const visualIndex = SECTORS.findIndex(s => s.realIndex === sectorIndex);
             const segmentAngle = 360 / SECTORS.length;
             const spins = 2;
@@ -180,9 +242,12 @@ export default function RouletteApp() {
             setLastSector(visualIndex);
 
             setTimeout(() => {
+                fetchBalance();
                 setSpinning(false);
-                alert(`🎉 Prize: ${multiplier}x\nYou won ${ethers.formatUnits(payout, 18)} RLT`);
+                const entero = ethers.formatUnits(payout, 18).split('.')[0];
+                alert(`You won ${entero} Tickets 🎟️`);
             }, 4000);
+
         } catch (err) {
             console.error(err);
             setSpinning(false);
@@ -191,13 +256,17 @@ export default function RouletteApp() {
     };
 
     return (
-        <div className="w-screen h-screen flex flex-col items-center justify-center bg-gray-900 p-4">
-            <div className="mb-4 text-end"><ConnectButton /></div>
-            <div className="text-5xl">🔻</div>
+        <div className="flex flex-col items-center justify-center p-4">
 
-            {/* Roulette wheel container */}
+            <div className="w-full mb-8 mt-10">
+                <h1 className="style-script-regular text-2xl w-full text-center">
+                    SkullRoulette
+                </h1>
+            </div>
+
+            <div className="text-5xl"><i className="fa-solid fa-caret-down arrow"></i></div>
+
             <div ref={rouletteRef} className="relative w-[80vw] h-[80vw] max-w-[400px] max-h-[400px]">
-                {/* Rotating wheel */}
                 <div
                     className="w-full h-full rounded-full shadow-2xl transition-transform relative"
                     style={{
@@ -212,7 +281,6 @@ export default function RouletteApp() {
                         }).join(",")})`,
                     }}
                 >
-                    {/* Sector labels */}
                     {SECTORS.map((s, i) => {
                         const segmentAngle = 360 / SECTORS.length;
                         const angle = (i + 0.5) * segmentAngle;
@@ -240,11 +308,10 @@ export default function RouletteApp() {
                     })}
                 </div>
 
-                {/* Fixed red center circle with rotate icon */}
                 <div
                     className="absolute rounded-full flex items-center justify-center border-2"
                     style={{
-                        backgroundColor: "#ef4444",
+                        backgroundColor: "#e72121",
                         width: "40px",
                         height: "40px",
                         left: "50%",
@@ -257,49 +324,40 @@ export default function RouletteApp() {
                 </div>
             </div>
 
-            {/* Multiplier legend */}
-            <div className="flex gap-6 mt-6 text-lg text-white">
-                {MULTIPLIERS.map((s) => (
-                    <div key={s.label} className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full" style={{ background: s.color }} />
-                        {s.label}
-                    </div>
-                ))}
+            <div className="mt-10 flex flex-col">
+                <CustomConnectButton balance={balance} />
             </div>
 
-            {/* Action buttons */}
             {isConnected && (
                 <div className="mt-8 flex flex-col gap-4">
                     {!isApproved && (
                         <button
                             onClick={approveToken}
                             disabled={spinning}
-                            className="px-6 py-2 bg-blue-600 rounded font-bold text-white"
+                            className="px-7 py-1 rounded-full custom-button"
                         >
-                            Approve Tokens
+                            Approve Tickets
                         </button>
                     )}
-                    <button
-                        onClick={spinRoulette}
-                        disabled={spinning || !isApproved}
-                        className="px-6 py-2 bg-yellow-500 rounded font-bold text-white"
-                    >
-                        {spinning ? "Spinning..." : "Spin Roulette"}
-                    </button>
+
+                    {isApproved && (
+                        <button
+                            onClick={spinRoulette}
+                            disabled={spinning || !isApproved}
+                            className="px-7 py-1 rounded-full font-bold custom-button"
+                        >
+                            {spinning ? "Spinning..." : "Spin · 1 Ticket"}
+                        </button>
+                    )}
+
                     <button
                         onClick={buyTickets}
                         disabled={spinning}
-                        className="px-6 py-2 bg-green-600 rounded font-bold text-white"
+                        className="px-7 py-1 rounded-full font-bold custom-button"
                     >
                         Buy 10 Tickets · 0.01 ETH
                     </button>
                 </div>
-            )}
-
-            {lastSector !== null && (
-                <p className="mt-4 text-white">
-                    Last spin: {SECTORS[lastSector].label}
-                </p>
             )}
         </div>
     );
