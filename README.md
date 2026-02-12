@@ -49,6 +49,8 @@ cd skullroulette
 npm install
 
 - Run locally
+  
+cd frontend
 
 npm run dev
 
