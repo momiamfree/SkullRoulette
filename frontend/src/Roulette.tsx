@@ -55,7 +55,6 @@ export default function RouletteApp() {
 
     const [spinning, setSpinning] = useState(false);
     const [rotation, setRotation] = useState(0);
-    const [lastSector, setLastSector] = useState<number | null>(null);
     const [balance, setBalance] = useState("0");
     const [isApproved, setIsApproved] = useState(false);
 
@@ -86,12 +85,8 @@ export default function RouletteApp() {
         if (!isConnected) {
             setBalance("0");
             setIsApproved(false);
-            setLastSector(null);
             return;
         }
-
-        // Reset last spin when changing wallet
-        setLastSector(null);
     }, [address, isConnected]);
 
     // Fetch balance and approval when wallet or client changes
@@ -239,7 +234,6 @@ export default function RouletteApp() {
                 (360 - visualIndex * segmentAngle - segmentAngle / 2);
 
             setRotation(targetRotation);
-            setLastSector(visualIndex);
 
             setTimeout(() => {
                 fetchBalance();
